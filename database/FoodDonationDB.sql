@@ -1,0 +1,5 @@
+CREATE TABLE Users(
+    UserID INT PRIMARY KEY IDENTITY(1,1),
+    Name VARCHAR(100),
+    Email VARCHAR(100)
+);
