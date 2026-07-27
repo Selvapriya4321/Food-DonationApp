@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?><sqlb_project><db path="sql.db" readonly="0" foreign_keys="1" case_sensitive_like="0" temp_store="0" wal_autocheckpoint="1000" synchronous="2"/><attached/><window><main_tabs open="structure browser pragmas query" current="0"/></window><tab_structure><column_width id="0" width="300"/><column_width id="1" width="0"/><column_width id="2" width="100"/><column_width id="3" width="1991"/><column_width id="4" width="0"/><expanded_item id="0" parent="1"/><expanded_item id="0" parent="0"/><expanded_item id="1" parent="0"/><expanded_item id="2" parent="0"/><expanded_item id="3" parent="0"/><expanded_item id="4" parent="0"/><expanded_item id="1" parent="1"/><expanded_item id="2" parent="1"/><expanded_item id="3" parent="1"/></tab_structure><tab_browse><table title="Users" custom_title="0" dock_id="1" table="4,5:mainUsers"/><dock_state state="000000ff00000000fd0000000100000002000001c7000002aefc0100000001fb000000160064006f0063006b00420072006f00770073006500310100000000000001c70000011800ffffff000001c70000000000000004000000040000000800000008fc00000000"/><default_encoding codec=""/><browse_table_settings><table schema="main" name="FoodDonations" show_row_id="0" encoding="" plot_x_axis="" unlock_view_pk="_rowid_" freeze_columns="0"><sort/><column_widths><column index="1" value="73"/><column index="2" value="50"/><column index="3" value="85"/><column index="4" value="78"/><column index="5" value="62"/><column index="6" value="56"/><column index="7" value="103"/><column index="8" value="89"/><column index="9" value="156"/><column index="10" value="78"/></column_widths><filter_values/><conditional_formats/><row_id_formats/><display_formats/><hidden_columns/><plot_y_axes/><global_filter/></table><table schema="main" name="Users" show_row_id="0" encoding="" plot_x_axis="" unlock_view_pk="_rowid_" freeze_columns="0"><sort/><column_widths><column index="1" value="47"/><column index="2" value="117"/><column index="3" value="140"/><column index="4" value="85"/><column index="5" value="62"/><column index="6" value="46"/><column index="7" value="156"/></column_widths><filter_values/><conditional_formats/><row_id_formats/><display_formats/><hidden_columns/><plot_y_axes/><global_filter/></table></browse_table_settings></tab_browse><tab_sql><sql name="SQL 1*">-- Enable foreign key constraints
+PRAGMA foreign_keys = ON;
+
+-- Create Users table
+CREATE TABLE Users (
+    UserID INTEGER PRIMARY KEY AUTOINCREMENT,
+    FullName TEXT NOT NULL,
+    Email TEXT UNIQUE NOT NULL,
+    Phone TEXT,
+    Password TEXT NOT NULL,
+    Role TEXT NOT NULL,
+    CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create FoodDonations table
+CREATE TABLE FoodDonations (
+    DonationID INTEGER PRIMARY KEY AUTOINCREMENT,
+    UserID INTEGER,
+    FoodName TEXT,
+    Category TEXT,
+    FoodType TEXT,
+    Quantity INTEGER,
+    NumberOfPeople INTEGER,
+    PickupAddress TEXT,
+    PickupTime DATETIME,
+    Status TEXT DEFAULT 'Available',
+    FOREIGN KEY (UserID) REFERENCES Users(UserID)
+);
+
+-- Create NGOs table
+CREATE TABLE NGOs (
+    NGOID INTEGER PRIMARY KEY AUTOINCREMENT,
+    NGOName TEXT,
+    Email TEXT,
+    Phone TEXT,
+    Address TEXT
+);
+
+-- Create FoodRequests table
+CREATE TABLE FoodRequests (
+    RequestID INTEGER PRIMARY KEY AUTOINCREMENT,
+    DonationID INTEGER,
+    NGOID INTEGER,
+    RequestDate DATETIME DEFAULT CURRENT_TIMESTAMP,
+    Status TEXT DEFAULT 'Pending',
+    FOREIGN KEY (DonationID) REFERENCES FoodDonations(DonationID),
+    FOREIGN KEY (NGOID) REFERENCES NGOs(NGOID)
+);
+
+-- Insert sample data
+INSERT INTO Users (FullName, Email, Phone, Password, Role)
+VALUES
+('Selva Priya', 'selva@gmail.com', '9876543210', '123456', 'Donor'),
+('Stella Persiya', 'stella@gmail.com', '9876543211', '123456', 'Donor'),
+('Rahul Kumar', 'rahul@gmail.com', '9876543212', '123456', 'NGO'),
+('Anitha Devi', 'anitha@gmail.com', '9876543213', '123456', 'Donor'),
+('Vignesh R', 'vignesh@gmail.com', '9876543214', '123456', 'Admin');
+
+INSERT INTO NGOs (NGOName, Email, Phone, Address)
+VALUES
+('Helping Hands', 'help@gmail.com', '9876543201', 'Chennai'),
+('Food For All', 'food@gmail.com', '9876543202', 'Madurai'),
+('Care Foundation', 'care@gmail.com', '9876543203', 'Coimbatore'),
+('Hope Trust', 'hope@gmail.com', '9876543204', 'Trichy'),
+('Smile Foundation', 'smile@gmail.com', '9876543205', 'Salem');
+
+INSERT INTO FoodDonations
+(UserID, FoodName, Category, FoodType, Quantity, NumberOfPeople, PickupAddress, PickupTime)
+VALUES
+(1,'Rice','Lunch','Veg',20,40,'Chennai',datetime('now')),
+(2,'Biryani','Dinner','Non-Veg',15,30,'Madurai',datetime('now')),
+(3,'Bread','Breakfast','Veg',25,20,'Coimbatore',datetime('now')),
+(4,'Chapati','Dinner','Veg',18,25,'Trichy',datetime('now')),
+(5,'Lemon Rice','Lunch','Veg',30,50,'Salem',datetime('now'));
+
+INSERT INTO FoodRequests (DonationID, NGOID, Status)
+VALUES
+(1,1,'Pending'),
+(2,2,'Approved'),
+(3,3,'Pending'),
+(4,4,'Completed'),
+(5,5,'Pending');</sql><current_tab id="0"/></tab_sql></sqlb_project>

@@ -1,53 +1,167 @@
 const express = require("express");
 const cors = require("cors");
-const { sql, poolPromise } = require("./config/db");
+
+const db = require("./config/db");
+const authRoutes = require("./routes/authRoutes");
+const dashboardRoutes = require("./routes/dashboardRoutes");
+const donationRoutes = require("./routes/donationRoutes");
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-// Home Route
+// ================= AUTH ROUTES =================
+app.use("/api/auth", authRoutes);
+
+// ================= DASHBOARD =================
+app.use("/api/dashboard", dashboardRoutes);
+
+// ================= DONATION ROUTES =================
+app.use("/api/donations", donationRoutes);
+
+// ================= HOME =================
 app.get("/", (req, res) => {
     res.send("🍱 Food Donation API is Running...");
 });
 
-// Get Donations
-app.get("/api/donations", async (req, res) => {
-    try {
-        const pool = await poolPromise;
-        const result = await pool.request().query("SELECT * FROM Donations");
-        res.json(result.recordset);
-    } catch (err) {
-        res.status(500).send(err.message);
-    }
+// ================= USERS =================
+app.get("/api/users", (req, res) => {
+
+    db.all("SELECT * FROM Users", [], (err, rows) => {
+
+        if (err) {
+            return res.status(500).json({
+                success: false,
+                message: err.message
+            });
+        }
+
+        res.json(rows);
+
+    });
+
 });
 
-// Add Donation
-app.post("/api/donations", async (req, res) => {
-    try {
-        const { donorName, foodItem, quantity, location } = req.body;
+// ================= FOOD DONATIONS =================
+app.get("/api/donations", (req, res) => {
 
-        const pool = await poolPromise;
+    db.all("SELECT * FROM FoodDonations", [], (err, rows) => {
 
-        await pool.request()
-            .input("DonorName", sql.VarChar, donorName)
-            .input("FoodItem", sql.VarChar, foodItem)
-            .input("Quantity", sql.Int, quantity)
-            .input("Location", sql.VarChar, location)
-            .query(`
-                INSERT INTO Donations
-                (DonorName, FoodItem, Quantity, Location)
-                VALUES
-                (@DonorName, @FoodItem, @Quantity, @Location)
-            `);
+        if (err) {
+            return res.status(500).json({
+                success: false,
+                message: err.message
+            });
+        }
 
-        res.send("Donation Added Successfully");
-    } catch (err) {
-        res.status(500).send(err.message);
-    }
+        res.json(rows);
+
+    });
+
 });
 
-app.listen(5000, () => {
-    console.log("🚀 Server running on port 5000");
+// ================= ADD DONATION =================
+app.post("/api/donations", (req, res) => {
+
+    const {
+        UserID,
+        FoodName,
+        Category,
+        FoodType,
+        Quantity,
+        NumberOfPeople,
+        PickupAddress,
+        PickupTime
+    } = req.body;
+
+    const sql = `
+        INSERT INTO FoodDonations
+        (
+            UserID,
+            FoodName,
+            Category,
+            FoodType,
+            Quantity,
+            NumberOfPeople,
+            PickupAddress,
+            PickupTime
+        )
+        VALUES
+        (?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    db.run(
+        sql,
+        [
+            UserID,
+            FoodName,
+            Category,
+            FoodType,
+            Quantity,
+            NumberOfPeople,
+            PickupAddress,
+            PickupTime
+        ],
+        function (err) {
+
+            if (err) {
+                return res.status(500).json({
+                    success: false,
+                    message: err.message
+                });
+            }
+
+            res.status(201).json({
+                success: true,
+                message: "Food Donation Added Successfully",
+                DonationID: this.lastID
+            });
+
+        }
+    );
+
+});
+
+// ================= NGOs =================
+app.get("/api/ngos", (req, res) => {
+
+    db.all("SELECT * FROM NGOs", [], (err, rows) => {
+
+        if (err) {
+            return res.status(500).json({
+                success: false,
+                message: err.message
+            });
+        }
+
+        res.json(rows);
+
+    });
+
+});
+
+// ================= FOOD REQUESTS =================
+app.get("/api/requests", (req, res) => {
+
+    db.all("SELECT * FROM FoodRequests", [], (err, rows) => {
+
+        if (err) {
+            return res.status(500).json({
+                success: false,
+                message: err.message
+            });
+        }
+
+        res.json(rows);
+
+    });
+
+});
+
+// ================= SERVER =================
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
 });

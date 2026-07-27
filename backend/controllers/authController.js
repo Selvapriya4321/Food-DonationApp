@@ -1,125 +1,235 @@
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { query, run, get } = require('../config/db');
 
-// Temporary users array (acts like a database)
-const users = [];
+// ============================================
+// REGISTER USER
+// ============================================
 
-// ==========================
-// Register
-// ==========================
-exports.register = async (req, res) => {
+const register = async (req, res) => {
     try {
+        const { FullName, Email, Phone, Password, Role } = req.body;
 
-        const { name, email, password, phone, role } = req.body;
+        console.log('📝 Registration attempt:', { FullName, Email, Role });
 
-        // Check email already exists
-        const existingUser = users.find(user => user.email === email);
+        // Validate input
+        if (!FullName || !Email || !Password) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide FullName, Email, and Password',
+                requestId: req.requestId
+            });
+        }
+
+        // Check if user exists
+        const existingUser = await get(
+            'SELECT * FROM Users WHERE Email = ?',
+            [Email]
+        );
 
         if (existingUser) {
             return res.status(400).json({
                 success: false,
-                message: "Email already exists"
+                message: 'User already exists with this email',
+                requestId: req.requestId
             });
         }
 
         // Hash password
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(Password, salt);
 
-        // Create user
-        const newUser = {
-            id: users.length + 1,
-            name,
-            email,
-            password: hashedPassword,
-            phone,
-            role
-        };
+        // Insert user
+        const result = await run(
+            `INSERT INTO Users (FullName, Email, Phone, Password, Role, CreatedAt) 
+             VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+            [FullName, Email, Phone || null, hashedPassword, Role || 'Donor']
+        );
 
-        users.push(newUser);
+        // Get the inserted user
+        const user = await get(
+            'SELECT UserID, FullName, Email, Phone, Role, CreatedAt FROM Users WHERE UserID = ?',
+            [result.lastID]
+        );
+
+        // Generate token
+        const token = jwt.sign(
+            { UserID: user.UserID, Email: user.Email, Role: user.Role },
+            process.env.JWT_SECRET || 'mySecretKey123',
+            { expiresIn: '7d' }
+        );
+
+        console.log('✅ User registered successfully:', { UserID: user.UserID, Email: user.Email });
 
         res.status(201).json({
             success: true,
-            message: "Registration Successful",
+            message: 'User registered successfully',
+            token,
             user: {
-                id: newUser.id,
-                name: newUser.name,
-                email: newUser.email,
-                phone: newUser.phone,
-                role: newUser.role
-            }
+                UserID: user.UserID,
+                FullName: user.FullName,
+                Email: user.Email,
+                Phone: user.Phone,
+                Role: user.Role,
+                CreatedAt: user.CreatedAt
+            },
+            requestId: req.requestId
         });
 
     } catch (error) {
-
+        console.error('❌ Register error:', error);
         res.status(500).json({
             success: false,
-            message: error.message
+            message: 'Server error during registration',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            requestId: req.requestId
         });
-
     }
 };
 
-// ==========================
-// Login
-// ==========================
-exports.login = async (req, res) => {
+// ============================================
+// LOGIN USER
+// ============================================
 
+const login = async (req, res) => {
     try {
+        const { Email, Password } = req.body;
 
-        const { email, password } = req.body;
+        console.log('🔐 Login attempt:', { Email });
 
-        // Find user
-        const user = users.find(user => user.email === email);
+        if (!Email || !Password) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide Email and Password',
+                requestId: req.requestId
+            });
+        }
+
+        // Get user
+        const user = await get(
+            'SELECT * FROM Users WHERE Email = ?',
+            [Email]
+        );
+
+        if (!user) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid credentials',
+                requestId: req.requestId
+            });
+        }
+
+        // Check password
+        const isMatch = await bcrypt.compare(Password, user.Password);
+        if (!isMatch) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid credentials',
+                requestId: req.requestId
+            });
+        }
+
+        // Generate token
+        const token = jwt.sign(
+            { UserID: user.UserID, Email: user.Email, Role: user.Role },
+            process.env.JWT_SECRET || 'mySecretKey123',
+            { expiresIn: '7d' }
+        );
+
+        // Remove password from response
+        delete user.Password;
+
+        console.log('✅ Login successful:', { Email });
+
+        res.json({
+            success: true,
+            message: 'Login successful',
+            token,
+            user: {
+                UserID: user.UserID,
+                FullName: user.FullName,
+                Email: user.Email,
+                Phone: user.Phone,
+                Role: user.Role,
+                CreatedAt: user.CreatedAt
+            },
+            requestId: req.requestId
+        });
+
+    } catch (error) {
+        console.error('❌ Login error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error during login',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            requestId: req.requestId
+        });
+    }
+};
+
+// ============================================
+// GET CURRENT USER
+// ============================================
+
+const getCurrentUser = async (req, res) => {
+    try {
+        const user = await get(
+            `SELECT UserID, FullName, Email, Phone, Role, CreatedAt
+             FROM Users
+             WHERE UserID = ?`,
+            [req.user.UserID]
+        );
 
         if (!user) {
             return res.status(404).json({
                 success: false,
-                message: "User not found"
+                message: 'User not found',
+                requestId: req.requestId
             });
         }
 
-        // Compare password
-        const isMatch = await bcrypt.compare(password, user.password);
-
-        if (!isMatch) {
-            return res.status(401).json({
-                success: false,
-                message: "Invalid Password"
-            });
-        }
-
-        // Create JWT
-        const token = jwt.sign(
-            {
-                id: user.id,
-                email: user.email,
-                role: user.role
-            },
-            process.env.JWT_SECRET,
-            {
-                expiresIn: "1d"
-            }
-        );
-
-        res.status(200).json({
+        res.json({
             success: true,
-            message: "Login Successful",
-            token,
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                phone: user.phone,
-                role: user.role
-            }
+            user,
+            requestId: req.requestId
         });
 
     } catch (error) {
-
+        console.error('❌ Get user error:', error);
         res.status(500).json({
             success: false,
-            message: error.message
+            message: 'Server error',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            requestId: req.requestId
         });
-
     }
 };
+
+// ============================================
+// GET ALL USERS (Admin only)
+// ============================================
+
+const getAllUsers = async (req, res) => {
+    try {
+        const users = await query(
+            'SELECT UserID, FullName, Email, Phone, Role, CreatedAt FROM Users ORDER BY CreatedAt DESC'
+        );
+
+        res.json({
+            success: true,
+            users,
+            requestId: req.requestId
+        });
+
+    } catch (error) {
+        console.error('❌ Get users error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            requestId: req.requestId
+        });
+    }
+};
+
+module.exports = { register, login, getCurrentUser, getAllUsers };

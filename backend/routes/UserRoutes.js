@@ -1,51 +1,48 @@
-const express = require("express");
-
+const express = require('express');
 const router = express.Router();
+const auth = require('../middleware/auth');
+const { asyncHandler } = require('../middleware/errorHandler');
+const {
+    getProfile,
+    updateProfile,
+    changePassword,
+    deleteAccount,
+    getAllUsers,
+    getUserById,
+    updateUser,
+    deleteUser,
+} = require('../controllers/userController');
 
-let users = [];
+// ============================================
+// 1. USER ROUTES (Protected)
+// ============================================
 
-// Get Users
-router.get("/", (req, res) => {
+// Get current user profile
+router.get('/profile', auth, asyncHandler(getProfile));
 
-    res.json({
-        success: true,
-        users
-    });
+// Update user profile
+router.put('/profile', auth, asyncHandler(updateProfile));
 
-});
+// Change password
+router.put('/change-password', auth, asyncHandler(changePassword));
 
-// Add User
-router.post("/", (req, res) => {
+// Delete account
+router.delete('/account', auth, asyncHandler(deleteAccount));
 
-    users.push(req.body);
+// ============================================
+// 2. ADMIN ROUTES
+// ============================================
 
-    res.status(201).json({
-        success: true,
-        message: "User Added",
-        data: req.body
-    });
+// Get all users (admin only)
+router.get('/', auth, asyncHandler(getAllUsers));
 
-});
+// Get user by ID (admin only)
+router.get('/:id', auth, asyncHandler(getUserById));
 
-// Update User
-router.put("/:id", (req, res) => {
+// Update user (admin only)
+router.put('/:id', auth, asyncHandler(updateUser));
 
-    res.json({
-        success: true,
-        message: `User ${req.params.id} Updated`,
-        updatedData: req.body
-    });
-
-});
-
-// Delete User
-router.delete("/:id", (req, res) => {
-
-    res.json({
-        success: true,
-        message: `User ${req.params.id} Deleted`
-    });
-
-});
+// Delete user (admin only)
+router.delete('/:id', auth, asyncHandler(deleteUser));
 
 module.exports = router;
